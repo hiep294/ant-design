@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { mount } from 'enzyme';
 import { SmileOutlined } from '@ant-design/icons';
 import ConfigProvider, { ConfigContext } from '..';
@@ -6,6 +6,7 @@ import Button from '../../button';
 import Table from '../../table';
 import Input from '../../input';
 import mountTest from '../../../tests/shared/mountTest';
+import { render, fireEvent } from '../../../tests/utils';
 
 describe('ConfigProvider', () => {
   mountTest(() => (
@@ -54,7 +55,31 @@ describe('ConfigProvider', () => {
       </ConfigProvider>,
     );
 
-    expect(wrapper.find('button').props().className).toEqual('bamboo-btn');
+    expect(wrapper.exists('button.bamboo-btn')).toBeTruthy();
+  });
+
+  it('dynamic prefixCls', () => {
+    const DynamicPrefixCls = () => {
+      const [prefixCls, setPrefixCls] = useState('bamboo');
+      return (
+        <div>
+          <Button onClick={() => setPrefixCls('light')} className="toggle-button">
+            toggle
+          </Button>
+          <ConfigProvider prefixCls={prefixCls}>
+            <ConfigProvider>
+              <Button />
+            </ConfigProvider>
+          </ConfigProvider>
+        </div>
+      );
+    };
+
+    const { container } = render(<DynamicPrefixCls />);
+
+    expect(container.querySelector('button.bamboo-btn')).toBeTruthy();
+    fireEvent.click(container.querySelector('.toggle-button'));
+    expect(container.querySelector('button.light-btn')).toBeTruthy();
   });
 
   it('iconPrefixCls', () => {
@@ -79,16 +104,23 @@ describe('ConfigProvider', () => {
   });
 
   it('render empty', () => {
+    let rendered = false;
+    let cacheRenderEmpty;
+
     const App = () => {
       const { renderEmpty } = React.useContext(ConfigContext);
-      return renderEmpty();
+      rendered = true;
+      cacheRenderEmpty = renderEmpty;
+      return null;
     };
-    const wrapper = mount(
+
+    render(
       <ConfigProvider>
         <App />
       </ConfigProvider>,
     );
 
-    expect(wrapper).toMatchRenderedSnapshot();
+    expect(rendered).toBeTruthy();
+    expect(cacheRenderEmpty).toBeFalsy();
   });
 });

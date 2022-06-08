@@ -1,13 +1,18 @@
 import React from 'react';
 import { mount } from 'enzyme';
-import { sleep } from '../../../tests/utils';
-import { resetWarned } from '../../_util/devWarning';
+import { act } from 'react-dom/test-utils';
+import { sleep, render } from '../../../tests/utils';
+import { resetWarned } from '../../_util/warning';
 
 describe('Collapse', () => {
   // eslint-disable-next-line global-require
   const Collapse = require('..').default;
 
   const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+  beforeEach(() => {
+    resetWarned();
+  });
 
   afterEach(() => {
     errorSpy.mockReset();
@@ -81,7 +86,6 @@ describe('Collapse', () => {
   });
 
   it('should trigger warning and keep compatibility when using disabled in Panel', () => {
-    resetWarned();
     const wrapper = mount(
       <Collapse>
         <Collapse.Panel disabled header="This is panel header 1" key="1">
@@ -94,11 +98,70 @@ describe('Collapse', () => {
       'Warning: [antd: Collapse.Panel] `disabled` is deprecated. Please use `collapsible="disabled"` instead.',
     );
 
-    expect(wrapper.find('.ant-collapse-header-text').exists()).toBeFalsy();
-
     expect(wrapper.find('.ant-collapse-item-disabled').length).toBe(1);
 
     wrapper.find('.ant-collapse-header').simulate('click');
     expect(wrapper.find('.ant-collapse-item-active').length).toBe(0);
+  });
+
+  it('should end motion when set activeKey while hiding', async () => {
+    jest.useFakeTimers();
+    jest.spyOn(window, 'requestAnimationFrame').mockImplementation(cb => {
+      setTimeout(cb, 16.66);
+    });
+
+    let setActiveKeyOuter;
+    const Test = () => {
+      const [activeKey, setActiveKey] = React.useState();
+      setActiveKeyOuter = setActiveKey;
+      return (
+        <div hidden>
+          <Collapse activeKey={activeKey}>
+            <Collapse.Panel header="header" key="1">
+              content
+            </Collapse.Panel>
+          </Collapse>
+        </div>
+      );
+    };
+
+    const wrapper = mount(<Test />);
+
+    await act(async () => {
+      setActiveKeyOuter('1');
+      await Promise.resolve();
+      jest.runAllTimers();
+    });
+
+    expect(wrapper.render().find('.ant-motion-collapse').length).toBe(0);
+
+    window.requestAnimationFrame.mockRestore();
+    jest.useRealTimers();
+  });
+
+  describe('expandIconPosition', () => {
+    ['left', 'right'].forEach(pos => {
+      it(`warning for legacy '${pos}'`, () => {
+        render(
+          <Collapse expandIconPosition={pos}>
+            <Collapse.Panel header="header" key="1" />
+          </Collapse>,
+        );
+
+        expect(errorSpy).toHaveBeenCalledWith(
+          'Warning: [antd: Collapse] `expandIconPosition` with `left` or `right` is deprecated. Please use `start` or `end` instead.',
+        );
+      });
+
+      it('position end', () => {
+        const { container } = render(
+          <Collapse expandIconPosition="end">
+            <Collapse.Panel header="header" key="1" />
+          </Collapse>,
+        );
+
+        expect(container.querySelector('.ant-collapse-icon-position-end')).toBeTruthy();
+      });
+    });
   });
 });

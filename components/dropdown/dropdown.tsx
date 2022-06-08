@@ -4,9 +4,12 @@ import classNames from 'classnames';
 import RightOutlined from '@ant-design/icons/RightOutlined';
 import DropdownButton from './dropdown-button';
 import { ConfigContext } from '../config-provider';
-import devWarning from '../_util/devWarning';
+import warning from '../_util/warning';
 import { tuple } from '../_util/type';
 import { cloneElement } from '../_util/reactNode';
+import getPlacements from '../_util/placements';
+import OverrideContext from '../menu/OverrideContext';
+import type { OverrideContextProps } from '../menu/OverrideContext';
 
 const Placements = tuple(
   'topLeft',
@@ -15,6 +18,8 @@ const Placements = tuple(
   'bottomLeft',
   'bottomCenter',
   'bottomRight',
+  'top',
+  'bottom',
 );
 
 type Placement = typeof Placements[number];
@@ -34,13 +39,18 @@ type Align = {
   useCssTransform?: boolean;
 };
 
-export interface DropDownProps {
-  arrow?: boolean;
+export type DropdownArrowOptions = {
+  pointAtCenter?: boolean;
+};
+
+export interface DropdownProps {
+  arrow?: boolean | DropdownArrowOptions;
   trigger?: ('click' | 'hover' | 'contextMenu')[];
   overlay: React.ReactElement | OverlayFunc;
   onVisibleChange?: (visible: boolean) => void;
   visible?: boolean;
   disabled?: boolean;
+  destroyPopupOnHide?: boolean;
   align?: Align;
   getPopupContainer?: (triggerNode: HTMLElement) => HTMLElement;
   prefixCls?: string;
@@ -53,16 +63,19 @@ export interface DropDownProps {
   mouseEnterDelay?: number;
   mouseLeaveDelay?: number;
   openClassName?: string;
+  children?: React.ReactNode;
 }
 
-interface DropdownInterface extends React.FC<DropDownProps> {
+interface DropdownInterface extends React.FC<DropdownProps> {
   Button: typeof DropdownButton;
 }
 
 const Dropdown: DropdownInterface = props => {
-  const { getPopupContainer: getContextPopupContainer, getPrefixCls, direction } = React.useContext(
-    ConfigContext,
-  );
+  const {
+    getPopupContainer: getContextPopupContainer,
+    getPrefixCls,
+    direction,
+  } = React.useContext(ConfigContext);
 
   const getTransitionName = () => {
     const rootPrefixCls = getPrefixCls();
@@ -76,62 +89,23 @@ const Dropdown: DropdownInterface = props => {
     return `${rootPrefixCls}-slide-up`;
   };
 
-  const renderOverlay = (prefixCls: string) => {
-    // rc-dropdown already can process the function of overlay, but we have check logic here.
-    // So we need render the element to check and pass back to rc-dropdown.
-    const { overlay } = props;
-
-    let overlayNode;
-    if (typeof overlay === 'function') {
-      overlayNode = (overlay as OverlayFunc)();
-    } else {
-      overlayNode = overlay;
-    }
-    overlayNode = React.Children.only(
-      typeof overlayNode === 'string' ? <span>{overlayNode}</span> : overlayNode,
-    );
-
-    const overlayProps = overlayNode.props;
-
-    // Warning if use other mode
-    devWarning(
-      !overlayProps.mode || overlayProps.mode === 'vertical',
-      'Dropdown',
-      `mode="${overlayProps.mode}" is not supported for Dropdown's Menu.`,
-    );
-
-    // menu cannot be selectable in dropdown defaultly
-    // menu should be focusable in dropdown defaultly
-    const { selectable = false, focusable = true, expandIcon } = overlayProps;
-
-    const overlayNodeExpandIcon =
-      typeof expandIcon !== 'undefined' && React.isValidElement(expandIcon) ? (
-        expandIcon
-      ) : (
-        <span className={`${prefixCls}-menu-submenu-arrow`}>
-          <RightOutlined className={`${prefixCls}-menu-submenu-arrow-icon`} />
-        </span>
-      );
-
-    const fixedModeOverlay =
-      typeof overlayNode.type === 'string'
-        ? overlayNode
-        : cloneElement(overlayNode, {
-            mode: 'vertical',
-            selectable,
-            focusable,
-            expandIcon: overlayNodeExpandIcon,
-          });
-
-    return fixedModeOverlay as React.ReactElement;
-  };
-
   const getPlacement = () => {
     const { placement } = props;
-    if (placement !== undefined) {
-      return placement;
+    if (!placement) {
+      return direction === 'rtl' ? ('bottomRight' as Placement) : ('bottomLeft' as Placement);
     }
-    return direction === 'rtl' ? ('bottomRight' as Placement) : ('bottomLeft' as Placement);
+
+    if (placement.includes('Center')) {
+      const newPlacement = placement.slice(0, placement.indexOf('Center'));
+      warning(
+        !placement.includes('Center'),
+        'Dropdown',
+        `You are using '${placement}' placement in Dropdown, which is deprecated. Try to use '${newPlacement}' instead.`,
+      );
+      return newPlacement;
+    }
+
+    return placement;
   };
 
   const {
@@ -168,17 +142,65 @@ const Dropdown: DropdownInterface = props => {
     alignPoint = true;
   }
 
+  const builtinPlacements = getPlacements({
+    arrowPointAtCenter: typeof arrow === 'object' && arrow.pointAtCenter,
+    autoAdjustOverflow: true,
+  });
+
+  const overlayContext = React.useMemo<OverrideContextProps>(
+    () => ({
+      prefixCls: `${prefixCls}-menu`,
+      expandIcon: (
+        <span className={`${prefixCls}-menu-submenu-arrow`}>
+          <RightOutlined className={`${prefixCls}-menu-submenu-arrow-icon`} />
+        </span>
+      ),
+      mode: 'vertical',
+      selectable: false,
+      validator: ({ mode }) => {
+        // Warning if use other mode
+        warning(
+          !mode || mode === 'vertical',
+          'Dropdown',
+          `mode="${mode}" is not supported for Dropdown's Menu.`,
+        );
+      },
+    }),
+    [prefixCls],
+  );
+
+  const renderOverlay = () => {
+    // rc-dropdown already can process the function of overlay, but we have check logic here.
+    // So we need render the element to check and pass back to rc-dropdown.
+    const { overlay } = props;
+
+    let overlayNode;
+    if (typeof overlay === 'function') {
+      overlayNode = (overlay as OverlayFunc)();
+    } else {
+      overlayNode = overlay;
+    }
+    overlayNode = React.Children.only(
+      typeof overlayNode === 'string' ? <span>{overlayNode}</span> : overlayNode,
+    );
+
+    return (
+      <OverrideContext.Provider value={overlayContext}>{overlayNode}</OverrideContext.Provider>
+    );
+  };
+
   return (
     <RcDropdown
-      arrow={arrow}
       alignPoint={alignPoint}
       {...props}
+      builtinPlacements={builtinPlacements}
+      arrow={!!arrow}
       overlayClassName={overlayClassNameCustomized}
       prefixCls={prefixCls}
       getPopupContainer={getPopupContainer || getContextPopupContainer}
       transitionName={getTransitionName()}
       trigger={triggerActions}
-      overlay={() => renderOverlay(prefixCls)}
+      overlay={renderOverlay}
       placement={getPlacement()}
     >
       {dropdownTrigger}

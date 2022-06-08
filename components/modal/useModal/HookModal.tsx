@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { ModalFuncProps } from '../Modal';
+import type { ModalFuncProps } from '../Modal';
 import ConfirmDialog from '../ConfirmDialog';
 import defaultLocale from '../../locale/default';
 import LocaleReceiver from '../../locale-provider/LocaleReceiver';
@@ -32,13 +32,13 @@ const HookModal: React.ForwardRefRenderFunction<HookModalRef, HookModalProps> = 
   const prefixCls = getPrefixCls('modal');
   const rootPrefixCls = getPrefixCls();
 
-  function close(...args: any[]) {
+  const close = (...args: any[]) => {
     setVisible(false);
     const triggerCancel = args.some(param => param && param.triggerCancel);
     if (innerConfig.onCancel && triggerCancel) {
       innerConfig.onCancel();
     }
-  }
+  };
 
   React.useImperativeHandle(ref, () => ({
     destroy: close,

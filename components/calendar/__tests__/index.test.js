@@ -10,6 +10,7 @@ import Group from '../../radio/group';
 import Button from '../../radio/radioButton';
 import mountTest from '../../../tests/shared/mountTest';
 import rtlTest from '../../../tests/shared/rtlTest';
+import { render, fireEvent } from '../../../tests/utils';
 
 describe('Calendar', () => {
   mountTest(Calendar);
@@ -27,15 +28,34 @@ describe('Calendar', () => {
     findSelectItem(wrapper).at(index).simulate('click');
   }
 
+  // https://github.com/ant-design/ant-design/issues/30392
+  it('should be able to set undefined or null', () => {
+    expect(() => {
+      const wrapper = mount(<Calendar />);
+      wrapper.setProps({ value: null });
+    }).not.toThrow();
+    expect(() => {
+      const wrapper = mount(<Calendar />);
+      wrapper.setProps({ value: undefined });
+    }).not.toThrow();
+  });
+
   it('Calendar should be selectable', () => {
+    MockDate.set(Moment('2000-01-01').valueOf());
+
     const onSelect = jest.fn();
     const onChange = jest.fn();
-    const wrapper = mount(<Calendar onSelect={onSelect} onChange={onChange} />);
-    wrapper.find('.ant-picker-cell').at(0).simulate('click');
+    const { container } = render(<Calendar onSelect={onSelect} onChange={onChange} />);
+
+    fireEvent.click(container.querySelector('.ant-picker-cell'));
     expect(onSelect).toHaveBeenCalledWith(expect.anything());
+
     const value = onSelect.mock.calls[0][0];
     expect(Moment.isMoment(value)).toBe(true);
+
     expect(onChange).toHaveBeenCalled();
+
+    MockDate.reset();
   });
 
   it('only Valid range should be selectable', () => {
@@ -390,5 +410,21 @@ describe('Calendar', () => {
       <Calendar mode="year" monthFullCellRender={() => <div className="bamboo">Light</div>} />,
     );
     expect(wrapper.find('.bamboo').first().text()).toEqual('Light');
+  });
+
+  it('when fullscreen is false, the element returned by dateFullCellRender should be interactive', () => {
+    const onClick = jest.fn();
+    const wrapper = mount(
+      <Calendar
+        fullscreen={false}
+        dateFullCellRender={() => (
+          <div className="bamboo" onClick={onClick}>
+            Light
+          </div>
+        )}
+      />,
+    );
+    wrapper.find('.bamboo').first().simulate('click');
+    expect(onClick).toBeCalled();
   });
 });

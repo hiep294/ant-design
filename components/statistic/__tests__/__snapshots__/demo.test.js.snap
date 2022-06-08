@@ -86,7 +86,7 @@ exports[`renders ./components/statistic/demo/basic.md correctly 1`] = `
         Active Users
       </div>
       <div
-        class="ant-skeleton"
+        class="ant-skeleton ant-statistic-skeleton"
       >
         <div
           class="ant-skeleton-content"
@@ -321,6 +321,29 @@ exports[`renders ./components/statistic/demo/countdown.md correctly 1`] = `
           class="ant-statistic-content-value"
         >
           2 天 0 时 0 分 30 秒
+        </span>
+      </div>
+    </div>
+  </div>
+  <div
+    class="ant-col ant-col-12"
+    style="padding-left:8px;padding-right:8px"
+  >
+    <div
+      class="ant-statistic"
+    >
+      <div
+        class="ant-statistic-title"
+      >
+        Countdown
+      </div>
+      <div
+        class="ant-statistic-content"
+      >
+        <span
+          class="ant-statistic-content-value"
+        >
+          00:00:10
         </span>
       </div>
     </div>

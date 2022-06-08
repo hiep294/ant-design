@@ -1,12 +1,17 @@
 import * as React from 'react';
 import classNames from 'classnames';
+import useState from 'rc-util/lib/hooks/useState';
 import ArrowLeftOutlined from '@ant-design/icons/ArrowLeftOutlined';
 import ArrowRightOutlined from '@ant-design/icons/ArrowRightOutlined';
 import ResizeObserver from 'rc-resize-observer';
-import { ConfigConsumer, ConfigConsumerProps, DirectionType } from '../config-provider';
-import { TagType } from '../tag';
-import Breadcrumb, { BreadcrumbProps } from '../breadcrumb';
-import Avatar, { AvatarProps } from '../avatar';
+import type { ConfigConsumerProps, DirectionType } from '../config-provider';
+import { ConfigConsumer } from '../config-provider';
+import type { TagType } from '../tag';
+import type { BreadcrumbProps } from '../breadcrumb';
+import Breadcrumb from '../breadcrumb';
+import type { AvatarProps } from '../avatar';
+import Avatar from '../avatar';
+import Space from '../space';
 import TransButton from '../_util/transButton';
 import LocaleReceiver from '../locale-provider/LocaleReceiver';
 
@@ -16,21 +21,22 @@ export interface PageHeaderProps {
   title?: React.ReactNode;
   subTitle?: React.ReactNode;
   style?: React.CSSProperties;
-  breadcrumb?: BreadcrumbProps;
+  breadcrumb?: BreadcrumbProps | React.ReactElement<typeof Breadcrumb>;
   breadcrumbRender?: (props: PageHeaderProps, defaultDom: React.ReactNode) => React.ReactNode;
   tags?: React.ReactElement<TagType> | React.ReactElement<TagType>[];
   footer?: React.ReactNode;
   extra?: React.ReactNode;
   avatar?: AvatarProps;
-  onBack?: (e: React.MouseEvent<HTMLDivElement>) => void;
+  onBack?: (e?: React.MouseEvent<HTMLDivElement>) => void;
   className?: string;
   ghost?: boolean;
+  children?: React.ReactNode;
 }
 
 const renderBack = (
   prefixCls: string,
   backIcon?: React.ReactNode,
-  onBack?: (e: React.MouseEvent<HTMLElement>) => void,
+  onBack?: (e?: React.MouseEvent<HTMLDivElement>) => void,
 ) => {
   if (!backIcon || !onBack) {
     return null;
@@ -40,7 +46,7 @@ const renderBack = (
       {({ back }: { back: string }) => (
         <div className={`${prefixCls}-back`}>
           <TransButton
-            onClick={(e: React.MouseEvent<HTMLDivElement>) => {
+            onClick={(e?: React.MouseEvent<HTMLDivElement>) => {
               onBack?.(e);
             }}
             className={`${prefixCls}-back-button`}
@@ -103,7 +109,11 @@ const renderTitle = (
           {tags && <span className={`${headingPrefixCls}-tags`}>{tags}</span>}
         </div>
       )}
-      {extra && <span className={`${headingPrefixCls}-extra`}>{extra}</span>}
+      {extra && (
+        <span className={`${headingPrefixCls}-extra`}>
+          <Space>{extra}</Space>
+        </span>
+      )}
     </div>
   );
 };
@@ -120,9 +130,9 @@ const renderChildren = (prefixCls: string, children: React.ReactNode) => (
 );
 
 const PageHeader: React.FC<PageHeaderProps> = props => {
-  const [compact, updateCompact] = React.useState(false);
+  const [compact, updateCompact] = useState(false);
   const onResize = ({ width }: { width: number }) => {
-    updateCompact(width < 768);
+    updateCompact(width < 768, true);
   };
   return (
     <ConfigConsumer>
@@ -156,9 +166,12 @@ const PageHeader: React.FC<PageHeaderProps> = props => {
 
         const defaultBreadcrumbDom = getDefaultBreadcrumbDom();
 
-        //  support breadcrumbRender function
-        const breadcrumbDom =
-          breadcrumbRender?.(props, defaultBreadcrumbDom) || defaultBreadcrumbDom;
+        const isBreadcrumbComponent = breadcrumb && 'props' in breadcrumb;
+        // support breadcrumbRender function
+        const breadcrumbRenderDomFromProps =
+          breadcrumbRender?.(props, defaultBreadcrumbDom) ?? defaultBreadcrumbDom;
+
+        const breadcrumbDom = isBreadcrumbComponent ? breadcrumb : breadcrumbRenderDomFromProps;
 
         const className = classNames(prefixCls, customizeClassName, {
           'has-breadcrumb': !!breadcrumbDom,
